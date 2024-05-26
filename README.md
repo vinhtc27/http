@@ -1,39 +1,14 @@
-[![progress-banner](https://backend.codecrafters.io/progress/http-server/1918b403-84e5-4ab3-abad-b5ba0148af3c)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
+#  HTTP Server Challenge in Rust build by CodeCrafters
 
-This is a starting point for Rust solutions to the
-["Build Your Own HTTP server" Challenge](https://app.codecrafters.io/courses/http-server/overview).
+This is solutions for Rust implementation of the ["Build Your Own HTTP Server" Challenge](https://app.codecrafters.io/courses/http-server/overview) on CodeCrafters.
+In this challenge, I built an HTTP/1.1 server that can serve multiple clients concurrently.
 
-[HTTP](https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol) is the
-protocol that powers the web. In this challenge, you'll build a HTTP/1.1 server
-that is capable of serving multiple clients.
+## Overview
 
-Along the way you'll learn about TCP servers,
-[HTTP request syntax](https://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html),
-and more.
+The Hypertext Transfer Protocol ([HTTP](https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol)) is the protocol that powers the World Wide Web. Throughout this challenge, you'll learn about TCP servers, [HTTP request syntax](https://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html), and other essential concepts related to building an HTTP server.
 
-**Note**: If you're viewing this repo on GitHub, head over to
-[codecrafters.io](https://codecrafters.io) to try the challenge.
+## Resources
 
-# Passing the first stage
-
-The entry point for your HTTP server implementation is in `src/main.rs`. Study
-and uncomment the relevant code, and push your changes to pass the first stage:
-
-```sh
-git add .
-git commit -m "pass 1st stage" # any msg
-git push origin master
-```
-
-Time to move on to the next stage!
-
-# Stage 2 & beyond
-
-Note: This section is for stages 2 and beyond.
-
-1. Ensure you have `cargo (1.70)` installed locally
-1. Run `./your_server.sh` to run your program, which is implemented in
-   `src/main.rs`. This command compiles your Rust project, so it might be slow
-   the first time you run it. Subsequent runs will be fast.
-1. Commit your changes and run `git push origin master` to submit your solution
-   to CodeCrafters. Test output will be streamed to your terminal.
+- [HTTP/1.1 RFC](https://www.rfc-editor.org/rfc/rfc2616): The official specification for the HTTP/1.1 protocol.
+- [Rust Book](https://doc.rust-lang.org/book/): The official Rust programming language book, providing comprehensive documentation and examples.
+- [CodeCrafters Rust Track](https://app.codecrafters.io/tracks/rust): A collection of challenges focused on building real-world applications in Rust.
