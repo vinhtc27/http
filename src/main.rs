@@ -421,6 +421,19 @@ fn main() -> Result<(), Box<dyn Error>> {
                         .headers
                         .insert(HeaderType::ContentLength, str.len().to_string());
                     response.body = str;
+                } else if request.path == "/user-agent" {
+                    let user_agent = request
+                        .headers
+                        .get(&HeaderType::UserAgent)
+                        .unwrap()
+                        .to_string();
+                    response
+                        .headers
+                        .insert(HeaderType::ContentType, "text/plain".to_owned());
+                    response
+                        .headers
+                        .insert(HeaderType::ContentLength, user_agent.len().to_string());
+                    response.body = user_agent;
                 } else if request.path == "/" {
                 } else {
                     response.status_code = StatusCode::NotFound;
