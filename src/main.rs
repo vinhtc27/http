@@ -12,6 +12,8 @@ use std::{
     thread,
 };
 
+use flate2::{write::GzEncoder, Compression};
+
 const CRLF: &str = "\r\n";
 
 #[derive(Debug)]
@@ -489,10 +491,18 @@ fn connection_handler(mut conn: TcpStream, dir: Arc<String>) -> Result<(), Error
         response
             .headers
             .insert(HeaderType::ContentType, "text/plain".to_owned());
-        response
-            .headers
-            .insert(HeaderType::ContentLength, str.len().to_string());
-        response.body = str.into();
+
+        if let Some(value) = response.headers.get(&HeaderType::ContentEncoding) {
+            if value == "gzip" {
+                let mut encoder = GzEncoder::new(vec![], Compression::default());
+                encoder.write_all(str.as_bytes())?;
+                response.body = encoder.finish()?;
+            } else {
+                response.body = str.into();
+            }
+        } else {
+            response.body = str.into();
+        }
     } else if request.path.starts_with("/files") {
         let parts: Vec<_> = request.path.split(|s| s == '/').collect();
         let file_name = parts[2].to_string();
@@ -505,9 +515,6 @@ fn connection_handler(mut conn: TcpStream, dir: Arc<String>) -> Result<(), Error
                         HeaderType::ContentType,
                         "application/octet-stream".to_owned(),
                     );
-                    response
-                        .headers
-                        .insert(HeaderType::ContentLength, file.len().to_string());
                     response.body = file;
                 }
                 Err(_) => response.status_code = StatusCode::NotFound,
@@ -530,14 +537,16 @@ fn connection_handler(mut conn: TcpStream, dir: Arc<String>) -> Result<(), Error
         response
             .headers
             .insert(HeaderType::ContentType, "text/plain".to_owned());
-        response
-            .headers
-            .insert(HeaderType::ContentLength, user_agent.len().to_string());
+
         response.body = user_agent.into();
     } else if request.path == "/" {
     } else {
         response.status_code = StatusCode::NotFound;
     }
+
+    response
+        .headers
+        .insert(HeaderType::ContentLength, response.body.len().to_string());
 
     response.write_to(&mut conn)
 }
