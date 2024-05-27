@@ -4,13 +4,15 @@
 use std::{
     collections::HashMap,
     env, fmt,
-    fs::read,
-    io::{BufRead, BufReader, Write},
+    fs::{read, write},
+    io::{BufRead, BufReader, Read, Write},
     net::{TcpListener, TcpStream},
     str::FromStr,
     sync::Arc,
     thread,
 };
+
+const CRLF: &str = "\r\n";
 
 #[derive(Debug)]
 enum Method {
@@ -342,23 +344,29 @@ struct HttpRequest {
     path: String,
     version: String,
     headers: HashMap<HeaderType, String>,
-    body: String,
+    body: Vec<u8>,
 }
 
 impl From<&TcpStream> for HttpRequest {
     fn from(connection: &TcpStream) -> Self {
-        let mut lines = BufReader::new(connection).lines();
+        let mut reader = BufReader::new(connection);
 
-        let request_line = lines.next().unwrap().unwrap();
-        let parts: Vec<_> = request_line.split_whitespace().collect();
+        let mut request_line = String::new();
+        reader.read_line(&mut request_line).unwrap();
+        let parts: Vec<_> = request_line.trim().split_whitespace().collect();
         let method = parts[0].parse().unwrap();
         let path = parts[1].to_string();
         let version = parts[2].to_string();
 
         let mut headers = HashMap::new();
-        for line in lines {
-            let line = line.unwrap();
-            if line.is_empty() {
+        loop {
+            let mut line = String::new();
+            reader.read_line(&mut line).unwrap();
+            if line.trim().is_empty() {
+                break;
+            }
+            if line == CRLF {
+                reader.read_line(&mut line).unwrap();
                 break;
             }
             if let Some((header_type, value)) = HeaderType::parse(&line) {
@@ -366,7 +374,12 @@ impl From<&TcpStream> for HttpRequest {
             }
         }
 
-        let body = String::new();
+        let mut body = Vec::new();
+        if let Some(content_length_str) = headers.get(&HeaderType::ContentLength) {
+            let content_length: usize = content_length_str.parse().unwrap();
+            body.resize(content_length, 0);
+            reader.read_exact(&mut body).unwrap();
+        }
 
         Self {
             method,
@@ -388,13 +401,13 @@ struct HttpResponse {
 
 impl HttpResponse {
     fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), Error> {
-        write!(writer, "{} {}\r\n", self.version, self.status_code)?;
+        write!(writer, "{} {}{CRLF}", self.version, self.status_code)?;
 
         for (key, value) in &self.headers {
-            write!(writer, "{}: {}\r\n", key.to_string(), value)?;
+            write!(writer, "{}: {}{CRLF}", key.to_string(), value)?;
         }
 
-        write!(writer, "\r\n")?;
+        write!(writer, "{CRLF}")?;
         writer.write_all(&self.body)?;
         writer.flush()?;
 
@@ -424,19 +437,30 @@ fn connection_handler(mut conn: TcpStream, dir: Arc<String>) -> Result<(), Error
     } else if request.path.starts_with("/files") {
         let parts: Vec<_> = request.path.split(|s| s == '/').collect();
         let file_name = parts[2].to_string();
+        let file_path = format!("{}/{}", dir, file_name);
 
-        match read(format!("{}/{}", dir, file_name)) {
-            Ok(file) => {
-                response.headers.insert(
-                    HeaderType::ContentType,
-                    "application/octet-stream".to_owned(),
-                );
-                response
-                    .headers
-                    .insert(HeaderType::ContentLength, file.len().to_string());
-                response.body = file;
-            }
-            Err(_) => response.status_code = StatusCode::NotFound,
+        match request.method {
+            Method::Get => match read(file_path) {
+                Ok(file) => {
+                    response.headers.insert(
+                        HeaderType::ContentType,
+                        "application/octet-stream".to_owned(),
+                    );
+                    response
+                        .headers
+                        .insert(HeaderType::ContentLength, file.len().to_string());
+                    response.body = file;
+                }
+                Err(_) => response.status_code = StatusCode::NotFound,
+            },
+            Method::Post => match write(file_path, request.body) {
+                Ok(_) => response.status_code = StatusCode::Created,
+                Err(err) => {
+                    response.status_code = StatusCode::InternalServerError;
+                    response.body = err.to_string().as_bytes().to_vec();
+                }
+            },
+            _ => response.status_code = StatusCode::MethodNotAllowed,
         }
     } else if request.path == "/user-agent" {
         let user_agent = request
