@@ -460,14 +460,26 @@ fn connection_handler(mut conn: TcpStream, dir: Arc<String>) -> Result<(), Error
         body: String::new().into(),
     };
 
-    if let Some(value) = request.headers.get(&HeaderType::AcceptEncoding) {
-        if let Some(encoding_type) = EncodingType::from_str(value).ok() {
-            match encoding_type {
-                EncodingType::Gzip => response
-                    .headers
-                    .insert(HeaderType::ContentEncoding, value.to_owned()),
-                _ => None,
-            };
+    if let Some(values) = request.headers.get(&HeaderType::AcceptEncoding) {
+        let values: Vec<&str> = if values.contains(", ") {
+            values.split(", ").collect()
+        } else {
+            vec![values]
+        };
+        for value in values {
+            if let Ok(encoding_type) = EncodingType::from_str(value) {
+                if let Some(encoding_types) = response.headers.get_mut(&HeaderType::ContentEncoding)
+                {
+                    let new_encoding_types = format!("{}, {}", encoding_types, encoding_type);
+                    response
+                        .headers
+                        .insert(HeaderType::ContentEncoding, new_encoding_types);
+                } else {
+                    response
+                        .headers
+                        .insert(HeaderType::ContentEncoding, encoding_type.to_string());
+                }
+            }
         }
     }
 
