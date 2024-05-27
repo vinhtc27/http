@@ -388,16 +388,15 @@ struct HttpResponse {
 
 impl HttpResponse {
     fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), Error> {
-        let status_line = format!("{} {}\r\n", self.version, self.status_code);
-        write!(writer, "{}", status_line)?;
+        write!(writer, "{} {}\r\n", self.version, self.status_code)?;
 
         for (key, value) in &self.headers {
-            let header = format!("{}: {}\r\n", key.to_string(), value);
-            write!(writer, "{}", header)?;
+            write!(writer, "{}: {}\r\n", key.to_string(), value)?;
         }
 
-        writeln!(writer, "\r\n")?;
+        writeln!(writer)?;
         writer.write_all(&self.body)?;
+        writer.flush()?;
 
         Ok(())
     }
