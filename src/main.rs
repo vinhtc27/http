@@ -90,49 +90,49 @@ pub enum HeaderType {
     Custom(String),
 }
 
-impl ToString for HeaderType {
-    fn to_string(&self) -> String {
+impl fmt::Display for HeaderType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            HeaderType::Accept => "Accept".to_string(),
-            HeaderType::AcceptCharset => "Accept-Charset".to_string(),
-            HeaderType::AcceptEncoding => "Accept-Encoding".to_string(),
-            HeaderType::AcceptLanguage => "Accept-Language".to_string(),
-            HeaderType::AccessControlRequestMethod => "Access-Control-Request-Method".to_string(),
-            HeaderType::AccessControlRequestHeaders => "Access-Control-Request-Headers".to_string(),
-            HeaderType::Authorization => "Authorization".to_string(),
-            HeaderType::CacheControl => "Cache-Control".to_string(),
-            HeaderType::Connection => "Connection".to_string(),
-            HeaderType::ContentDisposition => "Content-Disposition".to_string(),
-            HeaderType::ContentEncoding => "Content-Encoding".to_string(),
-            HeaderType::ContentLanguage => "Content-Language".to_string(),
-            HeaderType::ContentLength => "Content-Length".to_string(),
-            HeaderType::ContentType => "Content-Type".to_string(),
-            HeaderType::Cookie => "Cookie".to_string(),
-            HeaderType::Date => "Date".to_string(),
-            HeaderType::Expect => "Expect".to_string(),
-            HeaderType::Forwarded => "Forwarded".to_string(),
-            HeaderType::From => "From".to_string(),
-            HeaderType::Host => "Host".to_string(),
-            HeaderType::IfMatch => "If-Match".to_string(),
-            HeaderType::IfModifiedSince => "If-Modified-Since".to_string(),
-            HeaderType::IfNoneMatch => "If-None-Match".to_string(),
-            HeaderType::IfRange => "If-Range".to_string(),
-            HeaderType::IfUnmodifiedSince => "If-Unmodified-Since".to_string(),
-            HeaderType::MaxForwards => "Max-Forwards".to_string(),
-            HeaderType::Origin => "Origin".to_string(),
-            HeaderType::Pragma => "Pragma".to_string(),
-            HeaderType::ProxyAuthenticate => "Proxy-Authenticate".to_string(),
-            HeaderType::ProxyAuthorization => "Proxy-Authorization".to_string(),
-            HeaderType::Range => "Range".to_string(),
-            HeaderType::Referer => "Referer".to_string(),
-            HeaderType::TE => "TE".to_string(),
-            HeaderType::Trailer => "Trailer".to_string(),
-            HeaderType::TransferEncoding => "Transfer-Encoding".to_string(),
-            HeaderType::UserAgent => "User-Agent".to_string(),
-            HeaderType::Upgrade => "Upgrade".to_string(),
-            HeaderType::Via => "Via".to_string(),
-            HeaderType::Warning => "Warning".to_string(),
-            HeaderType::Custom(name) => name.to_string(),
+            HeaderType::Accept => write!(f, "Accept"),
+            HeaderType::AcceptCharset => write!(f, "Accept-Charset"),
+            HeaderType::AcceptEncoding => write!(f, "Accept-Encoding"),
+            HeaderType::AcceptLanguage => write!(f, "Accept-Language"),
+            HeaderType::AccessControlRequestMethod => write!(f, "Access-Control-Request-Method"),
+            HeaderType::AccessControlRequestHeaders => write!(f, "Access-Control-Request-Headers"),
+            HeaderType::Authorization => write!(f, "Authorization"),
+            HeaderType::CacheControl => write!(f, "Cache-Control"),
+            HeaderType::Connection => write!(f, "Connection"),
+            HeaderType::ContentDisposition => write!(f, "Content-Disposition"),
+            HeaderType::ContentEncoding => write!(f, "Content-Encoding"),
+            HeaderType::ContentLanguage => write!(f, "Content-Language"),
+            HeaderType::ContentLength => write!(f, "Content-Length"),
+            HeaderType::ContentType => write!(f, "Content-Type"),
+            HeaderType::Cookie => write!(f, "Cookie"),
+            HeaderType::Date => write!(f, "Date"),
+            HeaderType::Expect => write!(f, "Expect"),
+            HeaderType::Forwarded => write!(f, "Forwarded"),
+            HeaderType::From => write!(f, "From"),
+            HeaderType::Host => write!(f, "Host"),
+            HeaderType::IfMatch => write!(f, "If-Match"),
+            HeaderType::IfModifiedSince => write!(f, "If-Modified-Since"),
+            HeaderType::IfNoneMatch => write!(f, "If-None-Match"),
+            HeaderType::IfRange => write!(f, "If-Range"),
+            HeaderType::IfUnmodifiedSince => write!(f, "If-Unmodified-Since"),
+            HeaderType::MaxForwards => write!(f, "Max-Forwards"),
+            HeaderType::Origin => write!(f, "Origin"),
+            HeaderType::Pragma => write!(f, "Pragma"),
+            HeaderType::ProxyAuthenticate => write!(f, "Proxy-Authenticate"),
+            HeaderType::ProxyAuthorization => write!(f, "Proxy-Authorization"),
+            HeaderType::Range => write!(f, "Range"),
+            HeaderType::Referer => write!(f, "Referer"),
+            HeaderType::TE => write!(f, "TE"),
+            HeaderType::Trailer => write!(f, "Trailer"),
+            HeaderType::TransferEncoding => write!(f, "Transfer-Encoding"),
+            HeaderType::UserAgent => write!(f, "User-Agent"),
+            HeaderType::Upgrade => write!(f, "Upgrade"),
+            HeaderType::Via => write!(f, "Via"),
+            HeaderType::Warning => write!(f, "Warning"),
+            HeaderType::Custom(name) => write!(f, "{}", name),
         }
     }
 }
@@ -182,6 +182,42 @@ impl FromStr for HeaderType {
             "Via" => Ok(HeaderType::Via),
             "Warning" => Ok(HeaderType::Warning),
             other => Ok(HeaderType::Custom(other.to_string())),
+        }
+    }
+}
+
+#[derive(Debug)]
+enum EncodingType {
+    Gzip,
+    Compress,
+    Deflate,
+    Brotli,
+    Zstd,
+}
+
+impl fmt::Display for EncodingType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            EncodingType::Gzip => write!(f, "gzip"),
+            EncodingType::Compress => write!(f, "compress"),
+            EncodingType::Deflate => write!(f, "deflate"),
+            EncodingType::Brotli => write!(f, "br"),
+            EncodingType::Zstd => write!(f, "zstd"),
+        }
+    }
+}
+
+impl FromStr for EncodingType {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_lowercase().as_str() {
+            "gzip" => Ok(EncodingType::Gzip),
+            "compress" => Ok(EncodingType::Compress),
+            "deflate" => Ok(EncodingType::Deflate),
+            "br" => Ok(EncodingType::Brotli),
+            "zstd" => Ok(EncodingType::Zstd),
+            _ => Err(()),
         }
     }
 }
@@ -353,7 +389,7 @@ impl From<&TcpStream> for HttpRequest {
 
         let mut request_line = String::new();
         reader.read_line(&mut request_line).unwrap();
-        let parts: Vec<_> = request_line.trim().split_whitespace().collect();
+        let parts: Vec<_> = request_line.split_whitespace().collect();
         let method = parts[0].parse().unwrap();
         let path = parts[1].to_string();
         let version = parts[2].to_string();
@@ -404,7 +440,7 @@ impl HttpResponse {
         write!(writer, "{} {}{CRLF}", self.version, self.status_code)?;
 
         for (key, value) in &self.headers {
-            write!(writer, "{}: {}{CRLF}", key.to_string(), value)?;
+            write!(writer, "{}: {}{CRLF}", key, value)?;
         }
 
         write!(writer, "{CRLF}")?;
@@ -423,6 +459,17 @@ fn connection_handler(mut conn: TcpStream, dir: Arc<String>) -> Result<(), Error
         headers: HashMap::new(),
         body: String::new().into(),
     };
+
+    if let Some(value) = request.headers.get(&HeaderType::AcceptEncoding) {
+        if let Some(encoding_type) = EncodingType::from_str(value).ok() {
+            match encoding_type {
+                EncodingType::Gzip => response
+                    .headers
+                    .insert(HeaderType::ContentEncoding, value.to_owned()),
+                _ => None,
+            };
+        }
+    }
 
     if request.path.starts_with("/echo") {
         let parts: Vec<_> = request.path.split(|s| s == '/').collect();
@@ -480,7 +527,7 @@ fn connection_handler(mut conn: TcpStream, dir: Arc<String>) -> Result<(), Error
         response.status_code = StatusCode::NotFound;
     }
 
-    Ok(response.write_to(&mut conn)?)
+    response.write_to(&mut conn)
 }
 
 fn main() -> Result<(), Error> {
