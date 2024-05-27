@@ -394,7 +394,7 @@ impl HttpResponse {
             write!(writer, "{}: {}\r\n", key.to_string(), value)?;
         }
 
-        writeln!(writer)?;
+        write!(writer, "\r\n")?;
         writer.write_all(&self.body)?;
         writer.flush()?;
 
