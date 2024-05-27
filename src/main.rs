@@ -3,11 +3,13 @@
 
 use std::{
     collections::HashMap,
-    error::Error,
-    fmt,
+    env, fmt,
+    fs::read,
     io::{BufRead, BufReader, Write},
     net::{TcpListener, TcpStream},
     str::FromStr,
+    sync::Arc,
+    thread,
 };
 
 #[derive(Debug)]
@@ -344,8 +346,8 @@ struct HttpRequest {
 }
 
 impl From<&TcpStream> for HttpRequest {
-    fn from(stream: &TcpStream) -> Self {
-        let mut lines = BufReader::new(stream).lines();
+    fn from(connection: &TcpStream) -> Self {
+        let mut lines = BufReader::new(connection).lines();
 
         let request_line = lines.next().unwrap().unwrap();
         let parts: Vec<_> = request_line.split_whitespace().collect();
@@ -381,70 +383,118 @@ struct HttpResponse {
     version: String,
     status_code: StatusCode,
     headers: HashMap<HeaderType, String>,
-    body: String,
+    body: Vec<u8>,
 }
 
-impl ToString for HttpResponse {
-    fn to_string(&self) -> String {
-        let status_line = format!("{} {}", self.version, self.status_code);
-        let mut headers_str = String::new();
-        for (key, value) in &self.headers {
-            headers_str.push_str(&format!("{}: {}\r\n", key.to_string(), value));
-        }
-        headers_str.push_str("\r\n");
+impl HttpResponse {
+    fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), Error> {
+        let status_line = format!("{} {}\r\n", self.version, self.status_code);
+        write!(writer, "{}", status_line)?;
 
-        format!("{}\r\n{}{}", status_line, headers_str, self.body)
+        for (key, value) in &self.headers {
+            let header = format!("{}: {}\r\n", key.to_string(), value);
+            write!(writer, "{}", header)?;
+        }
+
+        writeln!(writer, "\r\n")?;
+        writer.write_all(&self.body)?;
+
+        Ok(())
     }
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let listener = TcpListener::bind("127.0.0.1:4221").unwrap();
+fn connection_handler(mut conn: TcpStream, dir: Arc<String>) -> Result<(), Error> {
+    let request = HttpRequest::from(&conn);
+    let mut response = HttpResponse {
+        version: request.version,
+        status_code: StatusCode::Ok,
+        headers: HashMap::new(),
+        body: String::new().into(),
+    };
 
-    for stream in listener.incoming() {
-        match stream {
-            Ok(mut stream) => {
-                let request = HttpRequest::from(&stream);
-                let mut response = HttpResponse {
-                    version: request.version,
-                    status_code: StatusCode::Ok,
-                    headers: HashMap::new(),
-                    body: String::new(),
-                };
+    if request.path.starts_with("/echo") {
+        let parts: Vec<_> = request.path.split(|s| s == '/').collect();
+        let str = parts[2].to_string();
+        response
+            .headers
+            .insert(HeaderType::ContentType, "text/plain".to_owned());
+        response
+            .headers
+            .insert(HeaderType::ContentLength, str.len().to_string());
+        response.body = str.into();
+    } else if request.path.starts_with("/files") {
+        let parts: Vec<_> = request.path.split(|s| s == '/').collect();
+        let file_name = parts[2].to_string();
 
-                if request.path.starts_with("/echo") {
-                    let parts: Vec<_> = request.path.split(|s| s == '/').collect();
-                    let str = parts[2].to_string();
-                    response
-                        .headers
-                        .insert(HeaderType::ContentType, "text/plain".to_owned());
-                    response
-                        .headers
-                        .insert(HeaderType::ContentLength, str.len().to_string());
-                    response.body = str;
-                } else if request.path == "/user-agent" {
-                    let user_agent = request
-                        .headers
-                        .get(&HeaderType::UserAgent)
-                        .unwrap()
-                        .to_string();
-                    response
-                        .headers
-                        .insert(HeaderType::ContentType, "text/plain".to_owned());
-                    response
-                        .headers
-                        .insert(HeaderType::ContentLength, user_agent.len().to_string());
-                    response.body = user_agent;
-                } else if request.path == "/" {
-                } else {
-                    response.status_code = StatusCode::NotFound;
-                }
-                stream.write_all(response.to_string().as_bytes())?;
+        match read(format!("{}/{}", dir, file_name)) {
+            Ok(file) => {
+                response.headers.insert(
+                    HeaderType::ContentType,
+                    "application/octet-stream".to_owned(),
+                );
+                response
+                    .headers
+                    .insert(HeaderType::ContentLength, file.len().to_string());
+                response.body = file;
             }
-            Err(e) => {
-                eprintln!("error: {}", e);
+            Err(_) => response.status_code = StatusCode::NotFound,
+        }
+    } else if request.path == "/user-agent" {
+        let user_agent = request
+            .headers
+            .get(&HeaderType::UserAgent)
+            .unwrap()
+            .to_string();
+        response
+            .headers
+            .insert(HeaderType::ContentType, "text/plain".to_owned());
+        response
+            .headers
+            .insert(HeaderType::ContentLength, user_agent.len().to_string());
+        response.body = user_agent.into();
+    } else if request.path == "/" {
+    } else {
+        response.status_code = StatusCode::NotFound;
+    }
+
+    Ok(response.write_to(&mut conn)?)
+}
+
+fn main() -> Result<(), Error> {
+    let mut directory = String::new();
+    let mut args = env::args().skip(1);
+    while let Some(arg) = args.next() {
+        if arg == "--directory" {
+            if let Some(dir) = args.next() {
+                directory = dir;
+            }
+        }
+    }
+    let directory = if !directory.is_empty() {
+        Arc::new(directory)
+    } else {
+        Arc::new("./".to_owned())
+    };
+
+    let listener = TcpListener::bind("127.0.0.1:4221")?;
+
+    for connection in listener.incoming() {
+        match connection {
+            Ok(conn) => {
+                let dir = directory.clone();
+                thread::spawn(move || {
+                    if let Err(err) = connection_handler(conn, dir) {
+                        eprintln!("Connection handler error: {}", err);
+                    }
+                });
+            }
+            Err(err) => {
+                eprintln!("Failed to accept connection: {}", err);
             }
         }
     }
 
     Ok(())
 }
+
+pub type Error = Box<dyn std::error::Error + Send + Sync>;
